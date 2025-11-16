@@ -1,0 +1,37 @@
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: provectuslabs/kafka-ui
+  pullPolicy: IfNotPresent
+  tag: "v0.7.1"
+
+yamlApplicationConfig:
+  auth:
+    type: login_form
+  spring:
+    security:
+      user:
+       name: admin
+       password: admin123
+
+  kafka:
+    clusters:
+      - name: kafka-cluster
+        bootstrapServers: kafka-cluster-kafka-bootstrap:9092
+    connect:
+      - name: kafka-connect
+        address: kafka-connect-connect-api:8083
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+service:
+  type: NodePort
+  port: 80
+  nodePort: 30080

@@ -1,0 +1,420 @@
+global:
+  imageRegistry: ""
+
+clusterDomain: cluster.local
+
+extraDeploy: []
+
+diagnosticMode:
+  enabled: false
+
+image:
+  registry: docker.io
+  repository: bitnamilegacy/clickhouse
+  tag: 25.7.5-debian-12-r0
+  digest: ""
+
+shards: 1
+
+replicaCount: 1
+
+distributeReplicasByZone: false
+
+containerPorts:
+  http: 8123
+  https: 8443
+  tcp: 9000
+  tcpSecure: 9440
+  keeper: 2181
+  keeperSecure: 3181
+  keeperInter: 9444
+  mysql: 9004
+  postgresql: 9005
+  interserver: 9009
+  metrics: 8001
+
+livenessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+readinessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+startupProbe:
+  enabled: false
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+customLivenessProbe: {}
+
+customReadinessProbe: {}
+
+customStartupProbe: {}
+
+resourcesPreset: "2xlarge"
+
+resources:
+  limits:
+    cpu: 2
+    ephemeral-storage: 2Gi
+    memory: 4Gi
+  requests:
+    cpu: 0.2
+    ephemeral-storage: 500Mi
+    memory: 1Gi
+
+podSecurityContext:
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 1001
+
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
+auth:
+  username: admin
+  password: ""
+  existingSecret: clickhouse-secret
+  existingSecretKey: password
+
+logLevel: information
+
+keeper:
+  enabled: false
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+    selector: {}
+    dataSource: {}
+
+defaultConfigurationOverrides: |
+  <clickhouse>
+    <storage_configuration>
+      <disks>
+        <minio>
+          <type>s3</type>
+          <endpoint>https://minio-operator-hl.tenant-ns.svc.cluster.local:9000/clickhouse</endpoint>
+          <access_key_id>30oUOWi0MohcZK752GZF</access_key_id>
+          <use_environment_credentials>false</use_environment_credentials>
+          <secret_access_key>ZUCHe4lEOnTsQyY8EKvKQ0n41BCNfvrTIYB8da1q</secret_access_key>
+        </minio>
+      </disks>
+      <policies>
+        <external>
+          <volumes>
+            <s3>
+              <disk>minio</disk>
+            </s3>
+          </volumes>
+        </external>
+      </policies>
+    </storage_configuration>
+  
+    <!-- Macros -->
+    <macros>
+      <shard from_env="CLICKHOUSE_SHARD_ID"></shard>
+      <replica from_env="CLICKHOUSE_REPLICA_ID"></replica>
+      <layer>{{ include "common.names.fullname" . }}</layer>
+    </macros>
+    <!-- Log Level -->
+    <logger>
+      <level>{{ .Values.logLevel }}</level>
+    </logger>
+    {{- if or (ne (int .Values.shards) 1) (ne (int .Values.replicaCount) 1)}}
+    <!-- Cluster configuration - Any update of the shards and replicas requires helm upgrade -->
+    <remote_servers>
+      <default>
+        {{- $shards := $.Values.shards | int }}
+        {{- range $shard, $e := until $shards }}
+        <shard>
+            {{- $replicas := $.Values.replicaCount | int }}
+            {{- range $i, $_e := until $replicas }}
+            <replica>
+                <internal_replication>true</internal_replication>
+                <host>{{ printf "%s-shard%d-%d.%s.%s.svc.%s" (include "common.names.fullname" $ ) $shard $i (include "clickhouse.headlessServiceName" $) (include "common.names.namespace" $) $.Values.clusterDomain }}</host>
+                <port>{{ $.Values.service.ports.tcp }}</port>
+                <user from_env="CLICKHOUSE_ADMIN_USER"></user>
+                <password from_env="CLICKHOUSE_ADMIN_PASSWORD"></password>
+            </replica>
+            {{- end }}
+        </shard>
+        {{- end }}
+      </default>
+    </remote_servers>
+    {{- end }}
+    {{- if .Values.keeper.enabled }}
+    <!-- keeper configuration -->
+    <keeper_server>
+      {{/*ClickHouse keeper configuration using the helm chart */}}
+      <tcp_port>{{ $.Values.containerPorts.keeper }}</tcp_port>
+      {{- if .Values.tls.enabled }}
+      <tcp_port_secure>{{ $.Values.containerPorts.keeperSecure }}</tcp_port_secure>
+      {{- end }}
+      <server_id from_env="KEEPER_SERVER_ID"></server_id>
+      <log_storage_path>/bitnami/clickhouse/keeper/coordination/log</log_storage_path>
+      <snapshot_storage_path>/bitnami/clickhouse/keeper/coordination/snapshots</snapshot_storage_path>
+
+      <coordination_settings>
+          <operation_timeout_ms>10000</operation_timeout_ms>
+          <session_timeout_ms>30000</session_timeout_ms>
+          <raft_logs_level>trace</raft_logs_level>
+      </coordination_settings>
+
+      <raft_configuration>
+      {{- $nodes := .Values.replicaCount | int }}
+      {{- range $node, $e := until $nodes }}
+      <server>
+        <id>{{ $node | int }}</id>
+        <hostname from_env="{{ printf "KEEPER_NODE_%d" $node }}"></hostname>
+        <port>{{ $.Values.service.ports.keeperInter }}</port>
+      </server>
+      {{- end }}
+      </raft_configuration>
+    </keeper_server>
+    {{- end }}
+    {{- if or .Values.keeper.enabled .Values.zookeeper.enabled .Values.externalZookeeper.servers }}
+    <!-- Zookeeper configuration -->
+    <zookeeper>
+      {{- if or .Values.keeper.enabled }}
+      {{- $nodes := .Values.replicaCount | int }}
+      {{- range $node, $e := until $nodes }}
+      <node>
+        <host from_env="{{ printf "KEEPER_NODE_%d" $node }}"></host>
+        <port>{{ $.Values.service.ports.keeper }}</port>
+      </node>
+      {{- end }}
+      {{- else if .Values.zookeeper.enabled }}
+      {{/* Zookeeper configuration using the helm chart */}}
+      {{- $nodes := .Values.zookeeper.replicaCount | int }}
+      {{- range $node, $e := until $nodes }}
+      <node>
+        <host from_env="{{ printf "KEEPER_NODE_%d" $node }}"></host>
+        <port>{{ $.Values.zookeeper.service.ports.client }}</port>
+      </node>
+      {{- end }}
+      {{- else if .Values.externalZookeeper.servers }}
+      {{/* Zookeeper configuration using an external instance */}}
+      {{- range $node :=.Values.externalZookeeper.servers }}
+      <node>
+        <host>{{ $node }}</host>
+        <port>{{ $.Values.externalZookeeper.port }}</port>
+      </node>
+      {{- end }}
+      {{- end }}
+    </zookeeper>
+    {{- end }}
+    {{- if .Values.tls.enabled }}
+    <!-- TLS configuration -->
+    <tcp_port_secure from_env="CLICKHOUSE_TCP_SECURE_PORT"></tcp_port_secure>
+    <https_port from_env="CLICKHOUSE_HTTPS_PORT"></https_port>
+    <openSSL>
+        <server>
+            {{- $certFileName := default "tls.crt" .Values.tls.certFilename }}
+            {{- $keyFileName := default "tls.key" .Values.tls.certKeyFilename }}
+            <certificateFile>/bitnami/clickhouse/certs/{{$certFileName}}</certificateFile>
+            <privateKeyFile>/bitnami/clickhouse/certs/{{$keyFileName}}</privateKeyFile>
+            <verificationMode>none</verificationMode>
+            <cacheSessions>true</cacheSessions>
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+            <preferServerCiphers>true</preferServerCiphers>
+            {{- if or .Values.tls.autoGenerated .Values.tls.certCAFilename }}
+            {{- $caFileName := default "ca.crt" .Values.tls.certCAFilename }}
+            <caConfig>/bitnami/clickhouse/certs/{{$caFileName}}</caConfig>
+            {{- else }}
+            <loadDefaultCAFile>true</loadDefaultCAFile>
+            {{- end }}
+        </server>
+        <client>
+            <loadDefaultCAFile>true</loadDefaultCAFile>
+            <cacheSessions>true</cacheSessions>
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+            <preferServerCiphers>true</preferServerCiphers>
+            <verificationMode>none</verificationMode>
+            <invalidCertificateHandler>
+                <name>AcceptCertificateHandler</name>
+            </invalidCertificateHandler>
+        </client>
+    </openSSL>
+    {{- end }}
+    {{- if .Values.metrics.enabled }}
+     <!-- Prometheus metrics -->
+     <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port from_env="CLICKHOUSE_METRICS_PORT"></port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+    </prometheus>
+    {{- end }}
+  </clickhouse>
+
+existingOverridesConfigmap: ""
+
+extraOverrides: ""
+
+extraOverridesConfigmap: ""
+
+extraOverridesSecret: ""
+
+usersExtraOverrides: ""
+
+usersExtraOverridesConfigmap: ""
+
+usersExtraOverridesSecret: ""
+
+initdbScripts: {}
+
+initdbScriptsSecret: ""
+
+startdbScripts: {}
+
+startdbScriptsSecret: ""
+
+command:
+  - /scripts/setup.sh
+
+args: []
+
+automountServiceAccountToken: false
+
+nodeAffinityPreset:
+  type: ""
+  key: ""
+  values: []
+affinity: {}
+nodeSelector: {}
+tolerations: []
+updateStrategy:
+  type: RollingUpdate
+podManagementPolicy: Parallel
+extraEnvVars:
+  - name: AWS_ACCESS_KEY_ID
+    value: "30oUOWi0MohcZK752GZF"
+  - name: AWS_SECRET_ACCESS_KEY
+    value: "ZUCHe4lEOnTsQyY8EKvKQ0n41BCNfvrTIYB8da1q"
+pdb:
+  create: true
+  minAvailable: ""
+  maxUnavailable: ""
+tls:
+  enabled: false
+service:
+  type: ClusterIP
+  ports:
+    http: 8123
+    https: 443
+    tcp: 9000
+    tcpSecure: 9440
+    keeper: 2181
+    keeperSecure: 3181
+    keeperInter: 9444
+    mysql: 9004
+    postgresql: 9005
+    interserver: 9009
+    metrics: 8001
+  nodePorts:
+    http: ""
+    https: ""
+    tcp: ""
+    tcpSecure: ""
+    keeper: ""
+    keeperSecure: ""
+    keeperInter: ""
+    mysql: ""
+    postgresql: ""
+    interserver: ""
+    metrics: ""
+  clusterIP: ""
+  # loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  externalTrafficPolicy: Cluster
+  annotations: {}
+  extraPorts: []
+
+externalAccess:
+  enabled: false
+
+ingress:
+  enabled: false
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  selector: {}
+  dataSource: {}
+
+
+volumePermissions:
+  enabled: false
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: false
+
+metrics:
+  enabled: false
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.containerPorts.metrics }}"
+  serviceMonitor:
+    enabled: false
+
+externalZookeeper:
+  servers: []
+  port: 2888
+
+zookeeper:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/zookeeper
+    tag: 3.8.4-debian-12-r11
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    ports:
+      client: 2181
+  resourcesPreset: "medium"
+  resources: {}
+
+networkPolicy:
+  enabled: true
+  allowExternal: true
+  allowExternalEgress: true
+  extraIngress: []
+  extraEgress: []
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
