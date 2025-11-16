@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-kafka-config
+  namespace: kafka
+data:
+  MINIO_ENDPOINT: "192.168.19.201:9000"
+  MINIO_BUCKET: "vncredittrust-lake"
+  MINIO_PREFIX: "data-source"
+  KAFKA_BOOTSTRAP: "kafka-cluster-kafka-bootstrap:9092"
+  KAFKA_TOPIC: "test"

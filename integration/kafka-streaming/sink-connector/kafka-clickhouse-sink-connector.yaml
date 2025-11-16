@@ -1,0 +1,35 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: clickhouse-sink-connector
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka-connect
+spec:
+  class: com.clickhouse.kafka.connect.ClickHouseSinkConnector
+  tasksMax: 2
+  autoRestart:
+    enabled: true
+  config:
+    topics: "test"
+    # Converters
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    key.converter.schemas.enable: false
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+
+    consumer.override.max.poll.records: "10"
+
+    # Clickhouse-specific configs
+    database: "raw"
+    hostname: "clickhouse.clickhouse.svc.cluster.local"
+    port: "8123"
+    ssl: "false"
+    username: "admin"
+    password: "admin123"
+
+
+    # Optional tuning
+    flush.size: 10
+    errors.tolerance: all
+    errors.log.enable: false

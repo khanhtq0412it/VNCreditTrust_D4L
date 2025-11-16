@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-to-kafka
+  namespace: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio-to-kafka
+  template:
+    metadata:
+      labels:
+        app: minio-to-kafka
+    spec:
+      containers:
+      - name: minio-to-kafka
+        image: 192.168.19.200:30500/kafka-minio-producer-python:v1.0.0
+        envFrom:
+        - configMapRef:
+            name: minio-kafka-config
+        - secretRef:
+            name: minio-credentials

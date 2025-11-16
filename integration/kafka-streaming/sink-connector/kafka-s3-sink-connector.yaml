@@ -1,0 +1,45 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: minio-sink-connector
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: kafka-connect
+spec:
+  class: io.confluent.connect.s3.S3SinkConnector
+  tasksMax: 1
+  config:
+    connector.class: io.confluent.connect.s3.S3SinkConnector
+    topics: test
+
+    # MinIO / S3 config
+    s3.region: us-east-1
+    s3.bucket.name: vncredittrust-lake
+    aws.access.key.id: VNCreditTrustAdmin
+    aws.secret.access.key: "VnC_S3cret_L4ke_!2025#"
+    s3.path.style.access.enabled: true
+    store.url: "http://192.168.19.201:9000"
+
+    # Storage & Format
+    storage.class: io.confluent.connect.s3.storage.S3Storage
+    format.class: io.confluent.connect.s3.format.json.JsonFormat
+
+    # Partition / Path
+    partitioner.class: io.confluent.connect.storage.partitioner.TimeBasedPartitioner
+    topics.dir: kafka
+    path.format: 'YYYY/MM/dd'
+    timestamp.extractor: Wallclock
+    locale: en
+    timezone: Asia/Ho_Chi_Minh
+    partition.duration.ms: 86400000   # 1 ngày
+
+    # Converters
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    key.converter.schemas.enable: false
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+
+    # Flush & Part size
+    s3.part.size: 5242880
+    flush.size: 10
+    behavior.on.null.values: ignore
