@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp
+  labels:
+    app: google-sheet-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: google-sheet-mcp
+  template:
+    metadata:
+      labels:
+        app: google-sheet-mcp
+    spec:
+      containers:
+        - name: google-sheet-mcp
+          image: vetc/mcp:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python"]
+          args: ["src/mcp_server/google_sheet_server.py"]
+          envFrom:
+            - secretRef:
+                name: mcp-env
+          ports:
+            - containerPort: 8082
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: google-sheet-mcp
+spec:
+  selector:
+    app: google-sheet-mcp
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+  type: ClusterIP
+

@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  clickhouse-mcp:
+    image: mcp-server:v1.7
+    container_name: mcp-clickhouse-server
+    command: python src/mcp_server/clickhouse_server.py
+    ports:
+      - "8000:8080"
+    env_file:
+      - .env
+    environment:
+      # ClickHouse Connection Variables (set these in .env)
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-10.120.0.100}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-admin}
+      # Do NOT commit real passwords to this file; set in .env
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-""}
+    restart: always
+    networks:
+      - mcp_net
+
+  postgres-mcp:
+    image: mcp-server:v1.7
+    container_name: mcp-postgres-server
+    command: python src/mcp_server/postgres_server.py
+    ports:
+      - "8001:8081"
+    env_file:
+      - .env
+    environment:
+      # PostgreSQL Connection Variables (set these in .env)
+      POSTGRES_HOST: ${POSTGRES_HOST:-10.120.0.48}
+      POSTGRES_PORT: ${POSTGRES_PORT:-31312}
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASS: ${POSTGRES_PASS:-""}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-airflow}
+    restart: always
+    networks:
+      - mcp_net
+
+  google-sheet-mcp:
+    image: mcp-server:v1.7
+    container_name: mcp-google-sheet-server
+    command: python src/mcp_server/google_sheet_server.py
+    ports:
+      - "8002:8082"
+    env_file:
+      - .env
+    environment:
+      # Google sheet credentials: either provide a path inside the container
+      # (GOOGLE_SHEET_SERVICE_ACCOUNT_JSON_PATH) or the raw JSON in
+      # GOOGLE_SHEET_SERVICE_ACCOUNT. Do NOT commit secrets to this repo.
+      GOOGLE_SHEET_SERVICE_ACCOUNT_JSON_PATH: ${GOOGLE_SHEET_SERVICE_ACCOUNT_JSON_PATH:-""}
+      GOOGLE_SHEET_SERVICE_ACCOUNT: ${GOOGLE_SHEET_SERVICE_ACCOUNT:-""}
+    restart: always
+    networks:
+      - mcp_net
+
+  gitlab-mcp-external:
+    image: iwakitakuma/gitlab-mcp
+    container_name: gitlab_mcp_external
+    env_file:
+      - .env
+    environment:
+      # Required for the external GitLab MCP (set in your .env)
+      GITLAB_PERSONAL_ACCESS_TOKEN: ${GITLAB_PERSONAL_ACCESS_TOKEN}
+      GITLAB_API_URL: ${GITLAB_API_URL}
+      GITLAB_READ_ONLY_MODE: ${GITLAB_READ_ONLY_MODE:-true}
+      USE_GITLAB_WIKI: ${USE_GITLAB_WIKI:-true}
+      USE_MILESTONE: ${USE_MILESTONE:-true}
+      USE_PIPELINE: ${USE_PIPELINE:-true}
+      STREAMABLE_HTTP: ${STREAMABLE_HTTP:-true}
+    ports:
+      - "3333:3002"
+    restart: unless-stopped
+    networks:
+      - mcp_net
+
+networks:
+  mcp_net:
+    driver: bridge

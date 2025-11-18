@@ -1,0 +1,81 @@
+version: 2
+models:
+  - name: dpx_staging_prod_db_coredb_crm_owner_account
+    description: "Bảng danh sách tài khoản"
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: source
+        type: String
+        data_type: String
+        description: source
+      - name: status
+        type: String
+        data_type: String
+        description: status
+      - name: balance
+        type: Float64
+        data_type: Float64
+        description: balance
+      - name: cust_type
+        type: String
+        data_type: String
+        description: cust_type
+      - name: account_id
+        type: Int64
+        data_type: Int64
+        description: account_id
+        tests:
+          - clickhouse_test_not_null
+          - clickhouse_test_unique_replacing_mergetree
+      - name: last_modify
+        type: DateTime64(3, 'UTC')
+        data_type: DateTime64(3, 'UTC')
+        description: last_modify
+      - name: lock_balance
+        type: Float64
+        data_type: Float64
+        description: lock_balance
+      - name: mig_cust_type
+        type: String
+        data_type: String
+        description: mig_cust_type
+      - name: mig_object_id
+        type: String
+        data_type: String
+        description: mig_object_id
+      - name: mig_wallet_id
+        type: String
+        data_type: String
+        description: mig_wallet_id
+      - name: account_number
+        type: String
+        data_type: String
+        description: account_number
+        meta:
+          tags: [ "Hashing", "PII" ]
+      - name: mig_object_type
+        type: String
+        data_type: String
+        description: mig_object_type
+      - name: available_balance
+        type: Float64
+        data_type: Float64
+        description: available_balance
+      - name: mig_object_status
+        type: String
+        data_type: String
+        description: mig_object_status
+      - name: parent_account_id
+        type: Int64
+        data_type: Int64
+        description: parent_account_id
+      - name: subscription_balance
+        type: Float64
+        data_type: Float64
+        description: subscription_balance
+      - name: processing_time
+        type: DateTime64(3, 'UTC')
+        data_type: DateTime64(3, 'UTC')
+        description: processing_time

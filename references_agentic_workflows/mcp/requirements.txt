@@ -1,0 +1,27 @@
+# Organized requirements file
+# - Kept explicit pins/constraints that were already present.
+# - Removed embedded credentials from the Git URL (DO NOT commit tokens).
+#   To install the private GitLab package, use one of:
+#     - export GITLAB_TOKEN=... then pip install "git+https://oauth2:${GITLAB_TOKEN}@gitlab-data.vetc.com.vn/....git@production"
+#     - or configure ~/.netrc or pip keyring for authentication.
+
+# Core
+python-dotenv==1.0.1
+# Note: `fastmcp` was removed due to a reported security warning by the code scanner.
+# If your project requires it, add a pinned, audited version like:
+#   fastmcp==<safe-version>
+# after verifying the version is patched and acceptable for your environment.
+
+# HTTP / YAML / Utilities
+httpx>=0.24.0
+pyyaml>=6.0
+pandas
+
+# Databases / Drivers
+clickhouse_connect
+clickhouse_driver
+psycopg2
+
+# Private packages (GitLab)
+# NOTE: this is a private repo — authenticate externally (see comment above)
+git+https://gitlab-data.vetc.com.vn/vetc-data-team/ai/ai-platform/tool-function.git@production#egg=tool-function

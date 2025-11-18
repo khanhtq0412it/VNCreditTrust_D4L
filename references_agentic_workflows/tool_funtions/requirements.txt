@@ -1,0 +1,30 @@
+# requirements.txt
+# Runtime dependencies for the vetc-tool-function package.
+# Keep this file minimal and focused on runtime packages. For reproducible
+# builds, use a lock file (pip-tools: requirements.txt + requirements.lock) or
+# a project manager (Poetry, Pipenv).
+
+# Core utilities
+python-dotenv==1.0.1  # pinned (stable behavior for env loading)
+
+# Data
+pandas>=1.5
+
+# ClickHouse
+clickhouse-connect>=0.6
+clickhouse-driver>=0.2
+
+# Postgres driver
+# Use psycopg2-binary for ease of local installs; replace with psycopg2 in production if desired
+psycopg2-binary>=2.9
+
+# Google Sheets / Google API
+google-api-python-client>=2.0
+google-auth>=2.0
+
+# Notes:
+# - To freeze exact versions for deployment, run: pip freeze > requirements.lock
+# - For development dependencies (testing, linting), create a separate file:
+#   requirements-dev.txt
+# - Consider using pip-tools (pip-compile) or Poetry to manage transitive deps.
+

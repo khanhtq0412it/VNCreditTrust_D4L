@@ -1,0 +1,20 @@
+{
+  "servers": {
+    "clickhouse-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
+    },
+    "postgres-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:8001/mcp"
+    },
+    "gitlab-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:3333/mcp"
+    },
+    "google-sheet-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:8002/mcp"
+    }
+  }
+}
