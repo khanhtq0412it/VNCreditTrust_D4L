@@ -1,0 +1,23 @@
+{
+  "json": {},
+  "markdown": {},
+  "exec": {
+    "cwd": "${configDir}",
+    "commands": [
+      {
+        "command": "ruff format -",
+        "exts": ["py"]
+      },
+      {
+        "command": "taplo format -",
+        "exts": ["toml"]
+      }
+    ]
+  },
+  "excludes": ["data/**", ".venv/**"],
+  "plugins": [
+    "https://plugins.dprint.dev/json-0.21.0.wasm",
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/exec-0.6.0.json@a054130d458f124f9b5c91484833828950723a5af3f8ff2bd1523bd47b83b364"
+  ]
+}
